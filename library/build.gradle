@@ -2,7 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'com.github.dcendents.android-maven'
 
 version = "1.0-alpha"
-group='com.github.FredricMeier'
+group = 'com.github.FredricMeier'
 
 android {
     compileSdkVersion 26
@@ -14,6 +14,7 @@ android {
         versionCode 1
         versionName version
     }
+    sourceSets.main.java.exclude 'com/xiaomao/jsbridge/WebViewJavascriptBridge.js'
     buildTypes {
         release {
             minifyEnabled false
@@ -34,6 +35,7 @@ task sourcesJar(type: Jar) {
 
 task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.srcDirs
+    exclude 'com/xiaomao/jsbridge/WebViewJavascriptBridge.js'
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 
