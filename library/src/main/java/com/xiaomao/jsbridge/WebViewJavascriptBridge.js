@@ -105,7 +105,7 @@
     //提供给native调用,receiveRequestQueue 在会在页面加载完后赋值为null,所以
     function _handleRequestFromNative(requestJSON) {
         //console.log(requestJSON);
-        if (receiveRequestQueue && receiveRequestQueue.length > 0) {
+        if (receiveRequestQueue) {
             receiveRequestQueue.push(requestJSON);
         } else {
             _dispatchRequestFromNative(requestJSON);
