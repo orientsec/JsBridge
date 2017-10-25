@@ -82,6 +82,10 @@
                     };
                     prompt(GL_RESPONSE + JSON.stringify(response));
                 }
+            } else {
+                responseCallback = function (responseData) {
+
+                }
             }
             //查找指定handler
             var handler;
