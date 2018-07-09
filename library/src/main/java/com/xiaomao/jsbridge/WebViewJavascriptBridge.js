@@ -17,6 +17,9 @@
     var responseCallbacks = {};
     var uniqueId = 1;
 
+    var state = window.location.host.length > 0 ? "ok" : "error";
+    prompt(CUSTOM_PROTOCOL_SCHEME + 'pageLoaded/' + state);
+
     //set default requestHandler
     function init(requestHandler) {
         if (WebViewJavascriptBridge._requestHandler) {
@@ -130,6 +133,5 @@
     readyEvent.initEvent('WebViewJavascriptBridgeReady');
     readyEvent.bridge = WebViewJavascriptBridge;
     doc.dispatchEvent(readyEvent);
-    var state = window.location.host.length > 0 ? "ok" : "error";
-    prompt(CUSTOM_PROTOCOL_SCHEME + 'pageLoaded/' + state);
+
 })();
