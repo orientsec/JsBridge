@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
 //apply plugin: 'com.github.dcendents.android-maven'
 
 version = "1.0-alpha4"
@@ -8,12 +9,11 @@ android {
     buildToolsVersion "29.0.3"
 
     defaultConfig {
-        minSdkVersion 14
+        minSdkVersion 19
         targetSdkVersion 29
         versionCode 1
         versionName version
     }
-    sourceSets.main.java.exclude 'com/xiaomao/jsbridge/WebViewJavascriptBridge.js'
     buildTypes {
         release {
             minifyEnabled false
@@ -24,6 +24,7 @@ android {
 
 dependencies {
     implementation 'com.android.support:support-annotations:28.0.0'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 }
 
 // build a jar with source files
@@ -34,7 +35,6 @@ task sourcesJar(type: Jar) {
 
 task javadoc(type: Javadoc) {
     source = android.sourceSets.main.java.srcDirs
-    exclude 'com/xiaomao/jsbridge/WebViewJavascriptBridge.js'
     classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
 }
 

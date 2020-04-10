@@ -12,11 +12,7 @@ import android.webkit.WebChromeClient;
 import android.widget.Button;
 
 import com.google.gson.Gson;
-import com.xiaomao.jsbridge.BridgeHandler;
 import com.xiaomao.jsbridge.BridgeWebView;
-import com.xiaomao.jsbridge.CallBackFunction;
-import com.xiaomao.jsbridge.DefaultHandler;
-import com.xiaomao.jsbridge.OnPageLoadListener;
 
 public class MainActivity extends Activity implements OnClickListener {
 
