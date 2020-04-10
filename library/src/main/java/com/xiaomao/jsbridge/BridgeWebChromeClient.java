@@ -4,7 +4,6 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Message;
-import android.support.annotation.RequiresApi;
 import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.GeolocationPermissions;
@@ -15,6 +14,8 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
+
+import androidx.annotation.RequiresApi;
 
 class BridgeWebChromeClient extends WebChromeClient {
     private WebChromeClient webChromeClient = new WebChromeClient();

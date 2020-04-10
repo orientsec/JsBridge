@@ -5,12 +5,13 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Looper;
 import android.os.SystemClock;
-import android.support.annotation.RequiresApi;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+
+import androidx.annotation.RequiresApi;
 
 import java.util.ArrayList;
 import java.util.HashMap;
