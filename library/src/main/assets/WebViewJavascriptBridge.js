@@ -1,10 +1,8 @@
-//notation: js file can only use this kind of comments
-//since comments will cause error when use in webview.loadurl,
-//comments will be remove by java use regexp
-(function() {
+(function () {
     if (window.WebViewJavascriptBridge) {
         return;
     }
+    callHandler("onPageLoad", window.location.host);
 
     var receiveMessageQueue = [];
     var messageHandlers = {};
@@ -21,108 +19,100 @@
         var receivedMessages = receiveMessageQueue;
         receiveMessageQueue = null;
         for (var i = 0; i < receivedMessages.length; i++) {
-            _dispatchMessageFromNative(receivedMessages[i]);
+            var message = receivedMessages[i];
+            _dispatchMessageFromNative(message.handlerName, message.data, message.callbackId);
         }
     }
 
-    // 发送
-    function send(data, responseCallback) {
-        _doSend('send', data, responseCallback);
-    }
-
-    // 注册线程 往数组里面添加值
+    // 注册js handler
     function registerHandler(handlerName, handler) {
         messageHandlers[handlerName] = handler;
     }
-    // 调用线程
-    function callHandler(handlerName, data, responseCallback) {
-        _doSend(handlerName, data, responseCallback);
-    }
 
-    //sendMessage add message, 触发native处理 sendMessage
-    function _doSend(handlerName, message, responseCallback) {
+    // 调用原生handler
+    function callHandler(handlerName, data, responseCallback) {
         var callbackId;
-        if(typeof responseCallback === 'string'){
-            callbackId = responseCallback;
-        } else if (responseCallback) {
+        if (responseCallback) {
             callbackId = 'cb_' + (uniqueId++) + '_' + new Date().getTime();
             responseCallbacks[callbackId] = responseCallback;
-        }else{
-            callbackId = '';
+        } else {
+            callbackId = null;
         }
+
         try {
-             var fn = eval('window.android.' + handlerName);
-         } catch(e) {
-             console.log(e);
-         }
-         if (typeof fn === 'function'){
-             var responseData = fn.call(this, JSON.stringify(message), callbackId);
-             if(responseData){
-              console.log('response message: '+ responseData);
-                 responseCallback = responseCallbacks[callbackId];
-                 if (!responseCallback) {
-                     return;
-                  }
-                 responseCallback(responseData);
-                 delete responseCallbacks[callbackId];
-             }
-         }
+            //调用原生JavascriptInterface
+            window.jsBridge.callHandler(handlerName, JSON.stringify(data), callbackId);
+        } catch (e) {
+            console.log(e);
+        }
     }
 
-    //提供给native使用,
-    function _dispatchMessageFromNative(messageJSON) {
-        setTimeout(function() {
-            var message = JSON.parse(messageJSON);
-            var responseCallback;
-            //java call finished, now need to call js callback function
-            if (message.responseId) {
-                responseCallback = responseCallbacks[message.responseId];
-                if (!responseCallback) {
-                    return;
-                }
-                responseCallback(message.responseData);
-                delete responseCallbacks[message.responseId];
-            } else {
-                //直接发送
-                if (message.callbackId) {
-                    var callbackResponseId = message.callbackId;
-                    responseCallback = function(responseData) {
-                        _doSend('response', responseData, callbackResponseId);
-                    };
-                }
+    //向原生发送响应结果
+    function _responseToNative(data, callbackId) {
+        try {
+            window.jsBridge.response(JSON.stringify(data), callbackId);
+        } catch (e) {
+            console.log(e);
+        }
+    }
 
-                var handler = WebViewJavascriptBridge._messageHandler;
-                if (message.handlerName) {
-                    handler = messageHandlers[message.handlerName];
-                }
-                //查找指定handler
+    //提供给native使用
+    function _responseFromNative(data, callbackId) {
+        setTimeout(function () {
+            var responseCallback = responseCallbacks[callbackId];
+            if (!responseCallback) {
+                return;
+            }
+            responseCallback(data);
+            delete responseCallbacks[callbackId];
+        });
+    }
+
+    function _dispatchMessageFromNative(handlerName, data, callbackId) {
+        setTimeout(function () {
+            var responseCallback;
+            //直接发送
+            if (callbackId) {
+                responseCallback = function (responseData) {
+                    _responseToNative(responseData, callbackId);
+                };
+            }
+            //查找指定handler
+            var handler;
+            if (handlerName) {
+                handler = messageHandlers[handlerName];
+            } else {
+                handler = WebViewJavascriptBridge._requestHandler;
+            }
+            if (handler == undefined) {
+                console.log("WebViewJavascriptBridge: WARNING:no handler for ", request.handlerName);
+            } else {
                 try {
-                    handler(message.data, responseCallback);
+                    handler(data, responseCallback);
                 } catch (exception) {
-                    if (typeof console != 'undefined') {
-                        console.log("WebViewJavascriptBridge: WARNING: javascript handler threw.", message, exception);
-                    }
+                    console.error('WebViewJavascriptBridge: WARNING: javascript handler threw.', exception.stack);
                 }
             }
         });
     }
 
     //提供给native调用,receiveMessageQueue 在会在页面加载完后赋值为null,所以
-    function _handleMessageFromNative(messageJSON) {
-        console.log('handle message: '+ messageJSON);
+    function _handleMessageFromNative(handlerName, data, callbackId) {
+        console.log('handle message: ' + handlerName + ' callbackId:' + callbackId +" data:" + data);
         if (receiveMessageQueue) {
-            receiveMessageQueue.push(messageJSON);
+            var messageJson = {handlerName: handlerName, data: data, callbackId: callbackId};
+            receiveMessageQueue.push(messageJson);
         }
-        _dispatchMessageFromNative(messageJSON);
+        _dispatchMessageFromNative(handlerName, data, callbackId);
 
     }
 
     var WebViewJavascriptBridge = window.WebViewJavascriptBridge = {
         init: init,
-        send: send,
         registerHandler: registerHandler,
         callHandler: callHandler,
-        _handleMessageFromNative: _handleMessageFromNative
+        _handleMessageFromNative: _handleMessageFromNative,
+        _responseFromNative: _responseFromNative
     };
 
     var doc = document;

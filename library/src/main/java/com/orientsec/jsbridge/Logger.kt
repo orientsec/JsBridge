@@ -1,4 +1,4 @@
-package com.xiaomao.jsbridge
+package com.orientsec.jsbridge
 
 import android.util.Log
 

@@ -1,4 +1,4 @@
-package com.xiaomao.jsbridge
+package com.orientsec.jsbridge
 
 import android.graphics.Bitmap
 import android.net.http.SslError

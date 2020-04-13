@@ -1,4 +1,4 @@
-package com.xiaomao.jsbridge
+package com.orientsec.jsbridge
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -22,6 +22,10 @@ class BridgeWebView : WebView, IWebView {
 
     init {
         super.setWebViewClient(bridgeWebViewClient)
+        addJavascriptInterface(jsBridge, "jsBridge")
+        if (Logger.debug) {
+            setWebContentsDebuggingEnabled(true)
+        }
     }
 
     override fun setWebViewClient(webViewClient: WebViewClient) {
@@ -31,6 +35,7 @@ class BridgeWebView : WebView, IWebView {
     override fun destroy() {
         super.destroy()
         jsBridge.clean()
+        context
     }
 
 }
