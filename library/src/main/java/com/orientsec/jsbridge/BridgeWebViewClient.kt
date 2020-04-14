@@ -9,8 +9,7 @@ import android.webkit.*
 import androidx.annotation.RequiresApi
 
 /**
- * 如果要自定义WebViewClient必须要集成此类
- * Created by bruce on 10/28/15.
+ * 如果要自定义WebViewClient必须要集成此类。
  */
 internal class BridgeWebViewClient(private val jsBridge: JsBridge) : WebViewClient() {
     internal var webViewClient: WebViewClient = WebViewClient()

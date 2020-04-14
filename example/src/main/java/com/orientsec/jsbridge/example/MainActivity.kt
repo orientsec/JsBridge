@@ -1,5 +1,6 @@
 package com.orientsec.jsbridge.example
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
@@ -9,7 +10,7 @@ import android.widget.Toast
 import com.google.gson.Gson
 import com.orientsec.jsbridge.BridgeHandler
 import com.orientsec.jsbridge.BridgeWebView
-import com.orientsec.jsbridge.Logger
+import com.orientsec.jsbridge.JsBridge
 
 class MainActivity : Activity(), View.OnClickListener {
     private lateinit var webView: BridgeWebView
@@ -24,17 +25,18 @@ class MainActivity : Activity(), View.OnClickListener {
         val testStr: String
     )
 
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        Logger.debug = true
+        JsBridge.debug = true
         webView = findViewById(R.id.webView)
         val settings = webView.settings
         settings.javaScriptEnabled = true
         val button = findViewById<Button>(R.id.button)
         button.setOnClickListener(this)
         webView.loadUrl("file:///android_asset/demo.html")
-        webView.jsBridge.registerHandler("submitFromWeb", object : BridgeHandler {
+        webView.registerHandler("submitFromWeb", object : BridgeHandler {
             override fun handle(data: String, callback: (String) -> Unit) {
                 Log.i("MainActivity", "handler = submitFromWeb, data from web = $data")
                 callback("submitFromWeb exe, response data 中文 from Java")
@@ -44,13 +46,13 @@ class MainActivity : Activity(), View.OnClickListener {
             Location("SDU")
         val user = User("大头鬼", location, "")
 
-        webView.jsBridge.callHandler("functionInJs", Gson().toJson(user)) {}
+        webView.callHandler("functionInJs", Gson().toJson(user)) {}
 
     }
 
     override fun onClick(v: View) {
         if (R.id.button == v.id) {
-            webView.jsBridge.callHandler(
+            webView.callHandler(
                 "functionInJs",
                 "data from Java"
             ) {

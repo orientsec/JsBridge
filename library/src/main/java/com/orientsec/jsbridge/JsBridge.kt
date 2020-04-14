@@ -5,24 +5,34 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.webkit.JavascriptInterface
-import java.net.URLEncoder
+import androidx.annotation.MainThread
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.system.measureTimeMillis
 
-class JsBridge(private val webView: IWebView) {
+class JsBridge(private val webView: IWebView) : IJSBridge,
+    Loggable by Logger(JsBridge::class.java.simpleName) {
+
+    enum class State {
+        IDLE, READY, DESTROY
+    }
+
+    private var state: State = State.IDLE
 
     private val mUniqueId = AtomicLong(0)
 
-    private val mMessageHandlers: MutableMap<String, BridgeHandler> = mutableMapOf()
+    private val mMessageHandlers: MutableMap<String, BridgeHandler> = ConcurrentHashMap()
 
-    private val mCallbacks: MutableMap<String, (String) -> Unit> = mutableMapOf()
+    private val mCallbacks: MutableMap<String, (String) -> Unit> = ConcurrentHashMap()
 
-    private var mRequests: MutableList<JSRequest>? = ArrayList()
+    private val mRequests: MutableList<String> = ArrayList()
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    var onPageLoadListener: OnPageLoadListener? = null
+    private fun checkState() {
+        require(state < State.DESTROY) { "JsBridge is destroyed." }
+    }
 
     /**
      * register handler,so that javascript can call it
@@ -31,7 +41,9 @@ class JsBridge(private val webView: IWebView) {
      * @param handlerName handlerName
      * @param handler     BridgeHandler
      */
-    fun registerHandler(handlerName: String, handler: BridgeHandler) {
+    @MainThread
+    override fun registerHandler(handlerName: String, handler: BridgeHandler) {
+        checkState()
         // 添加至 Map<String, BridgeHandler>
         mMessageHandlers[handlerName] = handler
     }
@@ -43,7 +55,9 @@ class JsBridge(private val webView: IWebView) {
      *
      * @param handlers handlerName
      */
-    fun registerHandler(handlers: Map<String, BridgeHandler>) {
+    @MainThread
+    override fun registerHandler(handlers: Map<String, BridgeHandler>) {
+        checkState()
         mMessageHandlers.putAll(handlers)
     }
 
@@ -53,149 +67,104 @@ class JsBridge(private val webView: IWebView) {
      *
      * @param handlerName
      */
-    fun unregisterHandler(handlerName: String) {
+    @MainThread
+    override fun unregisterHandler(handlerName: String) {
+        checkState()
         mMessageHandlers.remove(handlerName)
     }
 
 
     @JavascriptInterface
     fun callHandler(handlerName: String, data: String, callbackId: String?) {
-        val handler = mMessageHandlers[handlerName] ?: return
+        info(
+            "callJavaHandler->$handlerName, $data, callbackId: " +
+                    "$callbackId [${Thread.currentThread().name}]"
+        )
+        val handler = mMessageHandlers[handlerName]
+        if (handler == null) {
+            warn("no handler for:$handlerName")
+            return
+        }
         if (callbackId == null) {
             handler.handle(data)
         } else {
             handler.handle(data) {
-                responseToJs(it, callbackId)
+                dispatchMessage(String.format(JS_RESPONSE_FROM_JAVA, it, callbackId))
             }
         }
     }
 
     @JavascriptInterface
     fun response(data: String, callbackId: String) {
-        Logger.d(
-            javaClass.simpleName,
-            "response->$data, callbackId: $callbackId ${Thread.currentThread().name}"
-        )
+        info("responseFromJs->$data, callbackId: $callbackId [${Thread.currentThread().name}]")
         mCallbacks.remove(callbackId)?.invoke(data)
     }
 
+    @MainThread
     fun register(view: IWebView) {
+        require(state == State.IDLE) { "JsBridge is already registered." }
+        state = State.READY
         registerHandler("onPageLoad", object : BridgeHandler {
             override fun handle(data: String, callback: (String) -> Unit) {
-                if (Thread.currentThread() === Looper.getMainLooper().thread) {
-                    onPageLoadListener?.onPageLoaded(data.isNotEmpty())
-                } else {
-                    mainHandler.post { onPageLoadListener?.onPageLoaded(data.isNotEmpty()) }
-                }
+                runOnUiThread { view.onPageLoadListener.onPageLoaded(data.isNotEmpty()) }
             }
         })
         loadJs(view)
-        val requests = mRequests ?: return
-        for (request in requests) {
-            dispatchMessage(request.handlerName, request.data, request.callbackId)
+        if (mRequests.isNotEmpty()) {
+            dispatchMessage(mRequests)
+            mRequests.clear()
         }
-        mRequests = null
     }
 
     /**
-     * free memory
+     * Free memory.
      */
+    @MainThread
     fun clean() {
-        mCallbacks.clear()
-        mMessageHandlers.clear()
-        mRequests?.clear()
-    }
-
-    private fun responseToJs(data: String, callbackId: String) {
-        var messageJson = data
-        //escape special characters for json string  为json字符串转义特殊字符
-        messageJson = messageJson.replace("(\\\\)([^utrn])".toRegex(), "\\\\\\\\$1$2")
-        messageJson = messageJson.replace("(?<=[^\\\\])(\")".toRegex(), "\\\\\"")
-        messageJson = messageJson.replace("(?<=[^\\\\])(\')".toRegex(), "\\\\\'")
-        messageJson = messageJson.replace("%7B".toRegex(), URLEncoder.encode("%7B"))
-        messageJson = messageJson.replace("%7D".toRegex(), URLEncoder.encode("%7D"))
-        messageJson = messageJson.replace("%22".toRegex(), URLEncoder.encode("%22"))
-        val javascriptCommand =
-            String.format(
-                BridgeUtil.JS_RESPONSE_FROM_JAVA,
-                messageJson,
-                callbackId
-            )
-        Logger.d(javaClass.simpleName, "javascriptCommand->$javascriptCommand")
-
-        // 必须要找主线程才会将数据传递出去 --- 划重点
-        if (Thread.currentThread() === Looper.getMainLooper().thread) {
-            webView.evaluateJavascript(javascriptCommand, null)
-        } else {
-            mainHandler.post { webView.evaluateJavascript(javascriptCommand, null) }
+        if (state < State.DESTROY) {
+            state = State.DESTROY
+            mCallbacks.clear()
+            mMessageHandlers.clear()
+            mRequests.clear()
         }
     }
 
     /**
-     * 分发message 必须在主线程才分发成功
+     * 调用Js handler。
      *
+     * @param handlerName      HandlerName.
+     * @param data             Request data.
+     * @param responseCallback OnBridgeCallback.
      */
-    private fun dispatchMessage(handlerName: String, data: String, callbackId: String) {
-        var messageJson = data
-        //escape special characters for json string  为json字符串转义特殊字符
-        messageJson = messageJson.replace("(\\\\)([^utrn])".toRegex(), "\\\\\\\\$1$2")
-        messageJson = messageJson.replace("(?<=[^\\\\])(\")".toRegex(), "\\\\\"")
-        messageJson = messageJson.replace("(?<=[^\\\\])(\')".toRegex(), "\\\\\'")
-        messageJson = messageJson.replace("%7B".toRegex(), URLEncoder.encode("%7B"))
-        messageJson = messageJson.replace("%7D".toRegex(), URLEncoder.encode("%7D"))
-        messageJson = messageJson.replace("%22".toRegex(), URLEncoder.encode("%22"))
-        val javascriptCommand =
-            String.format(
-                BridgeUtil.JS_HANDLE_MESSAGE_FROM_JAVA,
-                handlerName,
-                messageJson,
-                callbackId
-            )
-        Logger.d(javaClass.simpleName, "javascriptCommand->$javascriptCommand")
-
-        // 必须要找主线程才会将数据传递出去 --- 划重点
-        if (Thread.currentThread() === Looper.getMainLooper().thread) {
-            webView.evaluateJavascript(javascriptCommand, null)
-        } else {
-            mainHandler.post { webView.evaluateJavascript(javascriptCommand, null) }
-        }
-    }
-
-
-    /**
-     * 保存message到消息队列
-     *
-     * @param handlerName      handlerName
-     * @param data             data
-     * @param responseCallback OnBridgeCallback
-     */
-    fun callHandler(
+    @MainThread
+    override fun callHandler(
         handlerName: String,
         data: String,
-        responseCallback: ((String) -> Unit)? = null
+        responseCallback: ((String) -> Unit)?
     ) {
+        checkState()
         require(handlerName.isNotEmpty()) { "Empty handler name." }
         var callbackId = ""
         if (responseCallback != null) {
             callbackId = String.format(
-                BridgeUtil.CALLBACK_ID_FORMAT,
-                "${mUniqueId.incrementAndGet()}" + BridgeUtil.UNDERLINE_STR + "${SystemClock.currentThreadTimeMillis()}"
+                CALLBACK_ID_FORMAT,
+                mUniqueId.incrementAndGet(),
+                SystemClock.currentThreadTimeMillis()
             )
             mCallbacks[callbackId] = responseCallback
         }
-        val request = mRequests
-        if (request != null) {
+        val jsCommand = String.format(JS_HANDLE_MESSAGE_FROM_JAVA, handlerName, data, callbackId)
+        if (state == State.IDLE) {
             //等待状态添加到消息集合否则分发消息
-            val jsRequest = JSRequest(callbackId, handlerName, data)
-            request.add(jsRequest)
+            mRequests.add(jsCommand)
         } else {
-            dispatchMessage(handlerName, data, callbackId)
+            dispatchMessage(jsCommand)
         }
     }
 
     /**
-     * 这里只是加载lib包中assets中的 WebViewJavascriptBridge.js
-     * @param view webview
+     * 这里只是加载lib包中assets中的 WebViewJavascriptBridge.js。
+     * @param view WebView.
      */
     private fun loadJs(view: IWebView) {
         val mill = measureTimeMillis {
@@ -203,17 +172,17 @@ class JsBridge(private val webView: IWebView) {
             val jsContent = assetFile2Str(context)
             view.loadUrl("javascript:$jsContent")
         }
-        Logger.i(javaClass.simpleName, "Load js bridge file cost:$mill ms")
+        info("load js bridge file cost:$mill ms")
     }
 
     /**
-     * 解析assets文件夹里面的代码,去除注释,取可执行的代码
-     * @param c context
-     * @return 可执行代码
+     * 解析assets文件夹里面的代码,去除注释,取可执行的代码。
+     * @param c Context.
+     * @return 可执行代码。
      */
     private fun assetFile2Str(c: Context): String {
         try {
-            c.assets.open(BridgeUtil.JAVA_SCRIPT)
+            c.assets.open(JAVA_SCRIPT)
                 .bufferedReader()
                 .use {
                     val sb = StringBuilder()
@@ -229,10 +198,49 @@ class JsBridge(private val webView: IWebView) {
         }
         return ""
     }
-}
 
-data class JSRequest(
-    val callbackId: String,
-    val handlerName: String,
-    val data: String
-)
+    private fun dispatchMessage(jsCommand: String) {
+        runOnUiThread {
+            info("callJs->$jsCommand")
+            webView.evaluateJavascript(jsCommand, null)
+        }
+    }
+
+    private fun dispatchMessage(jsCommands: List<String>) {
+        runOnUiThread {
+            jsCommands.forEach {
+                info("callJs->$it")
+                webView.evaluateJavascript(it, null)
+            }
+        }
+    }
+
+    private fun runOnUiThread(runnable: () -> Unit) {
+        // 必须要找主线程才会将数据传递出去 --- 划重点
+        if (Thread.currentThread() === Looper.getMainLooper().thread) {
+            if (state == State.READY) {
+                runnable()
+            } else {
+                warn("JsBridge is destroyed, stop dispatch to js")
+            }
+        } else {
+            mainHandler.post {
+                if (state == State.READY) {
+                    runnable()
+                } else {
+                    warn("JsBridge is destroyed, stop dispatch to js")
+                }
+            }
+        }
+    }
+
+    companion object {
+        const val JAVA_SCRIPT = "WebViewJavascriptBridge.js"
+        const val CALLBACK_ID_FORMAT = "JAVA_CB_%s_%s"
+        const val JS_HANDLE_MESSAGE_FROM_JAVA =
+            "javascript:WebViewJavascriptBridge._handleMessageFromNative('%s','%s','%s');"
+        const val JS_RESPONSE_FROM_JAVA =
+            "javascript:WebViewJavascriptBridge._responseFromNative('%s','%s');"
+        var debug: Boolean = false
+    }
+}

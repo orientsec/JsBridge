@@ -89,7 +89,7 @@
                 handler = WebViewJavascriptBridge._requestHandler;
             }
             if (handler == undefined) {
-                console.log("WebViewJavascriptBridge: WARNING:no handler for ", request.handlerName);
+                console.log("WebViewJavascriptBridge: WARNING:no handler for ", handlerName);
             } else {
                 try {
                     handler(data, responseCallback);

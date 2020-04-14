@@ -12,4 +12,5 @@ interface IWebView {
 
     fun evaluateJavascript(var1: String?, callback: ValueCallback<String>?)
 
+    val onPageLoadListener: OnPageLoadListener
 }
