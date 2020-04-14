@@ -76,6 +76,10 @@
                 responseCallback = function (responseData) {
                     _responseToNative(responseData, callbackId);
                 };
+            } else {
+                responseCallback = function (responseData) {
+
+                }
             }
             //查找指定handler
             var handler;
@@ -98,7 +102,7 @@
 
     //提供给native调用,receiveMessageQueue 在会在页面加载完后赋值为null,所以
     function _handleMessageFromNative(handlerName, data, callbackId) {
-        console.log('handle message: ' + handlerName + ' callbackId:' + callbackId +" data:" + data);
+        console.log('handle message: ' + handlerName + ' callbackId:' + callbackId + " data:" + data);
         if (receiveMessageQueue) {
             var messageJson = {handlerName: handlerName, data: data, callbackId: callbackId};
             receiveMessageQueue.push(messageJson);

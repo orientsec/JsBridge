@@ -135,7 +135,7 @@ class JsBridge(private val webView: IWebView) {
      * 分发message 必须在主线程才分发成功
      *
      */
-    private fun dispatchMessage(handlerName: String, data: String, callbackId: String?) {
+    private fun dispatchMessage(handlerName: String, data: String, callbackId: String) {
         var messageJson = data
         //escape special characters for json string  为json字符串转义特殊字符
         messageJson = messageJson.replace("(\\\\)([^utrn])".toRegex(), "\\\\\\\\$1$2")
@@ -175,7 +175,7 @@ class JsBridge(private val webView: IWebView) {
         responseCallback: ((String) -> Unit)? = null
     ) {
         require(handlerName.isNotEmpty()) { "Empty handler name." }
-        var callbackId: String? = null
+        var callbackId = ""
         if (responseCallback != null) {
             callbackId = String.format(
                 BridgeUtil.CALLBACK_ID_FORMAT,
@@ -230,3 +230,9 @@ class JsBridge(private val webView: IWebView) {
         return ""
     }
 }
+
+data class JSRequest(
+    val callbackId: String,
+    val handlerName: String,
+    val data: String
+)
