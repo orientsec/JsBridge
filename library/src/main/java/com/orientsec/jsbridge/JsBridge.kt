@@ -102,7 +102,7 @@ class JsBridge(private val webView: IWebView) : IJSBridge,
 
     @MainThread
     fun register(view: IWebView) {
-        require(state == State.IDLE) { "JsBridge is already registered." }
+        if (state != State.IDLE) return
         state = State.READY
         registerHandler("onPageLoad", object : BridgeHandler {
             override fun handle(data: String, callback: (String) -> Unit) {

@@ -2,9 +2,12 @@ package com.orientsec.jsbridge
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
+import android.os.Build
 import android.util.AttributeSet
 import android.webkit.WebView
 import android.webkit.WebViewClient
+
 
 @SuppressLint("SetJavaScriptEnabled")
 class BridgeWebView : WebView, IWebView, IJSBridge, OnPageLoadListener {
@@ -12,10 +15,10 @@ class BridgeWebView : WebView, IWebView, IJSBridge, OnPageLoadListener {
     private val jsBridge: JsBridge = JsBridge(this)
     private var bridgeWebViewClient: BridgeWebViewClient = BridgeWebViewClient(jsBridge)
 
-    constructor(context: Context?) : super(context)
-    constructor(context: Context?, attrs: AttributeSet?) : super(context, attrs)
-    constructor(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) : super(
-        context,
+    constructor(context: Context) : super(getFixedContext(context))
+    constructor(context: Context, attrs: AttributeSet?) : super(getFixedContext(context), attrs)
+    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(
+        getFixedContext(context),
         attrs,
         defStyleAttr
     )
@@ -68,4 +71,15 @@ class BridgeWebView : WebView, IWebView, IJSBridge, OnPageLoadListener {
 
     override val onPageLoadListener: OnPageLoadListener
         get() = mOnPageLoadListener
+
+    companion object {
+        private fun getFixedContext(context: Context): Context {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                && Build.VERSION.SDK_INT <= Build.VERSION_CODES.M
+            ) {
+                return context.createConfigurationContext(Configuration())
+            }
+            return context
+        }
+    }
 }
