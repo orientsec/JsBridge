@@ -102,17 +102,21 @@ class JsBridge(private val webView: IWebView) : IJSBridge,
 
     @MainThread
     fun register(view: IWebView) {
-        if (state != State.IDLE) return
-        state = State.READY
-        registerHandler("onPageLoad", object : BridgeHandler {
-            override fun handle(data: String, callback: (String) -> Unit) {
-                runOnUiThread { view.onPageLoadListener.onPageLoaded(data.isNotEmpty()) }
+        if (state != State.IDLE) {
+            state = State.READY
+            registerHandler("onPageLoad", object : BridgeHandler {
+                override fun handle(data: String, callback: (String) -> Unit) {
+                    runOnUiThread { view.onPageLoadListener.onPageLoaded(data.isNotEmpty()) }
+                }
+            })
+        }
+        //修复reload后bridge失效的问题。
+        if (state == State.READY) {
+            loadJs(view)
+            if (mRequests.isNotEmpty()) {
+                dispatchMessage(mRequests)
+                mRequests.clear()
             }
-        })
-        loadJs(view)
-        if (mRequests.isNotEmpty()) {
-            dispatchMessage(mRequests)
-            mRequests.clear()
         }
     }
 

@@ -11,9 +11,9 @@ import android.webkit.WebViewClient
 
 @SuppressLint("SetJavaScriptEnabled")
 class BridgeWebView : WebView, IWebView, IJSBridge, OnPageLoadListener {
-    var mOnPageLoadListener: OnPageLoadListener = this
+    private var mOnPageLoadListener: OnPageLoadListener = this
     private val jsBridge: JsBridge = JsBridge(this)
-    private var bridgeWebViewClient: BridgeWebViewClient = BridgeWebViewClient(jsBridge)
+    private val bridgeWebViewClient: BridgeWebViewClient = BridgeWebViewClient(jsBridge)
 
     constructor(context: Context) : super(getFixedContext(context))
     constructor(context: Context, attrs: AttributeSet?) : super(getFixedContext(context), attrs)
