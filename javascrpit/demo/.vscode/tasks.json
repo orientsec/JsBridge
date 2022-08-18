@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "debug",
+			"type": "npm",
+			"isBackground": true,
+			"script": "debug",
+			"group": "build",
+			"detail": "开发调试"
+		}
+	]
+}

@@ -1,7 +1,1 @@
-*.iml
-.gradle
-/gradle/wrapper/*.zip
-/local.properties
-.DS_Store
-/build
-.idea
+/javascrpit/demo/node_modules/
