@@ -23,7 +23,8 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation project(':library')
-    implementation 'androidx.appcompat:appcompat:1.3.1'
-    implementation 'com.google.code.gson:gson:2.8.6'
+    implementation 'androidx.appcompat:appcompat:1.4.1'
+    implementation 'com.google.code.gson:gson:2.8.9'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "androidx.webkit:webkit:1.4.0"
 }

@@ -11,37 +11,60 @@ export interface HandlerCallback {
      * 失败回调。
      */
     onError(code: number, info: string): void
-
 }
 
-export interface Bridge {
-    request(type: string, data: string, callbackId: string): void
-    response(code: number, info: string, data: string, callbackId: string): void
+export interface BridgeChannel {
+    onMessage(data: string): void
 }
 
-class Message {
-    readonly type: string
+// export declare let bridgeChannel: MessagePort
+
+
+class Request {
+
+    readonly type: string = 'request'
+
+    readonly name: string
 
     readonly data: string
 
     readonly callbackId: string
 
-    constructor(type: string, data: string, callbackId: string) {
-        this.type = type
+    constructor(name: string, data: string, callbackId: string) {
+        this.name = name
         this.data = data
         this.callbackId = callbackId
     }
 }
 
+class Response {
+    readonly type: string = 'response'
+
+    readonly code: number
+
+    readonly info: string
+
+    readonly data: string
+
+    readonly callbackId: string
+
+    constructor(code: number, info: string, data: string, callbackId: string) {
+        this.code = code
+        this.data = data
+        this.callbackId = callbackId
+        this.info = info
+    }
+}
 declare global {
     interface Window {
         jsBridge: JsBridge
-        nativeBridge: Bridge
+        bridgeChannel: BridgeChannel
+        bridgePort: MessagePort
     }
 }
 
 
-export class JsBridge implements Bridge {
+export class JsBridge {
 
     static getInstance(): JsBridge {
         if (!window.jsBridge) {
@@ -50,15 +73,20 @@ export class JsBridge implements Bridge {
 
             const readyEvent = new Event('WebViewJavascriptBridgeReady')
             window.dispatchEvent(readyEvent)
+
         }
         return window.jsBridge
     }
 
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     private constructor() {
+        if (window.bridgePort) {
+            window.bridgePort.onmessage = (e) => { this.onMessage(e.data) }
+        }
+        this.postMessage('JsBridge-Channel-Init')
     }
 
-    private receiveMessageQueue?: Message[] = []
+    private receiveMessageQueue?: Request[] = []
 
     private readonly messageHandlers: Map<string, MessageHandler> = new Map
 
@@ -67,6 +95,24 @@ export class JsBridge implements Bridge {
     private uniqueId = 1
 
     private defaultHandler: MessageHandler | undefined
+
+    //向native发送消息。
+    private postMessage(data: string, onError?: (exception: any) => void) {
+        try {
+            if (window.bridgePort) {
+                window.bridgePort.postMessage(data)
+            } else if (window.bridgeChannel) {
+                window.bridgeChannel.onMessage(data)
+            } else {
+                console.error('JsBridge: native bridge channel is undefined.')
+            }
+        } catch (e) {
+            if (onError) {
+                onError(e)
+            }
+            console.error(`JsBridge: post message to native error. data: ${data}`, e)
+        }
+    }
 
     //set default messageHandler  初始化默认的消息线程
     init(handler: MessageHandler): void {
@@ -79,7 +125,7 @@ export class JsBridge implements Bridge {
         this.receiveMessageQueue = undefined
         for (let i = 0; i < receivedMessages.length; i++) {
             const message = receivedMessages[i]
-            this.handleNativeMessage(message.type, message.data, message.callbackId)
+            this.handleNativeMessage(message.name, message.data, message.callbackId)
         }
     }
 
@@ -89,32 +135,96 @@ export class JsBridge implements Bridge {
     }
 
     // 调用原生handler
-    callHandler(type: string, data: string, handlerCallback?: HandlerCallback): void {
+    callHandler(name: string, data: string, handlerCallback?: HandlerCallback): void {
         let callbackId: string = ''
         if (handlerCallback) {
             callbackId = 'cb_' + (this.uniqueId++) + '_' + new Date().getTime()
             this.responseCallbacks.set(callbackId, handlerCallback)
         }
-        console.info(`JsBridge: call native handler:${type}, callbackId:${callbackId}, data:${data}.`)
+        console.info(`JsBridge: call native handler:${name}, callbackId:${callbackId}, data:${data}.`)
 
-        if (window.nativeBridge == undefined) {
-            console.error('JsBridge: Native bridge is undefined')
-            handlerCallback?.onError(-1, 'Native bridge is undefined.')
-            return
-        }
-
-        try {
-            //调用原生JavascriptInterface
-            window.nativeBridge.request(type, JSON.stringify(data), callbackId)
-        } catch (e) {
-            console.error('JsBridge: excute native JavascriptInterface error.', e)
+        let request = new Request(name, JSON.stringify(data), callbackId)
+        let json = JSON.stringify(request)
+        this.postMessage(json, () => {
             this.responseCallbacks.delete(callbackId)
             handlerCallback?.onError(-2, 'Fail to execute native JavascriptInterface.')
+        })
+    }
+
+    private handleNativeMessage(type: string, data: string, callbackId: string) {
+        setTimeout(() => {
+            let responseCallback
+            if (callbackId == null || callbackId.trim() === '') {
+                responseCallback = this.emptyCallback(type)
+            } else {
+                responseCallback = this.nativeCallback(callbackId)
+            }
+
+            //查找指定handler
+            const handler: MessageHandler | undefined = this.messageHandlers.get(type) ?? this.defaultHandler
+
+            if (handler == undefined) {
+                console.warn(`JsBridge: none js handler for [${type}].`)
+                responseCallback.onError(-1, `Handler:${type} not found.`)
+                return
+            }
+
+            try {
+                console.info(`JsBridge: invoke js handler:${type}, data:${data}.`)
+                handler.handle(data, responseCallback)
+            } catch (e) {
+                responseCallback.onError(-2, `Uncaught exception in js handler:${type}.`)
+                console.error(`JsBridge: invoke js handler:${type} error.`, e)
+            }
+
+        })
+    }
+
+    //接收native发送的消息。
+    onMessage(data: string) {
+        let json = JSON.parse(data)
+        let type = json.type
+        if (type == 'request') {
+            let request = json as Request
+            if (this.validateParams(request, 'name', 'data', 'callbackId')) {
+                this.onRequest(request.name, request.data, request.callbackId)
+            } else {
+                console.warn(`JsBridge: required request param lost, ${request}`)
+            }
+        } else if (type == 'response') {
+            let response = json as Response
+            if (this.validateParams(response, 'code', 'info', 'data', 'callbackId')) {
+                this.onResponse(response.code, response.info, response.data, response.callbackId)
+            } else {
+                console.warn(`JsBridge: required response param lost, ${response}`)
+            }
+        } else {
+            console.warn(`JsBridge: receive onKnown message: ${data}`)
+        }
+    }
+
+    private validateParams<T, K extends keyof T>(t: T, ...keys: K[]): boolean {
+        keys.forEach(key => {
+            if (t[key] === undefined) {
+                return false
+            }
+        })
+        return true
+    }
+
+    //提供给native调用js指令。receiveMessageQueue 在会在页面加载完后赋值为null。
+    private onRequest(name: string, data: string, callbackId: string) {
+        console.info(`JsBridge: receive native request:${name}, callbackId:${callbackId}, data:${data}.`)
+        if (this.receiveMessageQueue) {
+            const message = new Request(name, data, callbackId)
+            this.receiveMessageQueue.push(message)
+        } else {
+            this.handleNativeMessage(name, data, callbackId)
         }
     }
 
     //提供给native调用，用于返回native执行结果。
-    response(code: number, info: string, data: string, callbackId: string) {
+    private onResponse(code: number, info: string, data: string, callbackId: string) {
         console.info(`JsBridge: receive native response, callbackId:${callbackId}, code:${code}, info:${info}, data:${data}.`)
         setTimeout(() => {
             const responseCallback = this.responseCallbacks.get(callbackId)
@@ -131,45 +241,6 @@ export class JsBridge implements Bridge {
         })
     }
 
-    private handleNativeMessage(type: string, data: string, callbackId: string) {
-        setTimeout(() => {
-            let responseCallback
-            if (callbackId == null || callbackId.trim() === '') {
-                responseCallback = this.emptyCallback(type)
-            } else {
-                responseCallback = this.nativeCallback(type, callbackId)
-            }
-
-            //查找指定handler
-            const handler: MessageHandler | undefined = this.messageHandlers.get(type) ?? this.defaultHandler
-
-            if (handler == undefined) {
-                console.warn(`JsBridge: none js handler for [${type}].`)
-                responseCallback.onError(-1, `Handler:${type} not found.`)
-                return
-            }
-            
-            try {
-                console.info(`JsBridge: invoke js handler:${type}, data:${data}.`)
-                handler.handle(data, responseCallback)
-            } catch (e) {
-                responseCallback.onError(-2, `Uncaught exception in js handler:${type}.`)
-                console.error(`JsBridge: invoke js handler:${type} error.`, e)
-            }
-
-        })
-    }
-
-    //提供给native调用js指令。receiveMessageQueue 在会在页面加载完后赋值为null。
-    request(type: string, data: string, callbackId: string) {
-        console.info(`JsBridge: receive native request:${type}, callbackId:${callbackId}, data:${data}.`)
-        if (this.receiveMessageQueue) {
-            const message = new Message(type, data, callbackId)
-            this.receiveMessageQueue.push(message)
-        } else {
-            this.handleNativeMessage(type, data, callbackId)
-        }
-    }
 
     //空回调。
     private emptyCallback(type: string): HandlerCallback {
@@ -185,21 +256,11 @@ export class JsBridge implements Bridge {
     }
 
     //将js执行结果返回给原生的callback。
-    private nativeCallback(type: string, callbackId: string): HandlerCallback {
+    private nativeCallback(callbackId: string): HandlerCallback {
         const callNative = (code: number, info: string, data?: string) => {
-            if (window.nativeBridge == undefined) {
-                console.error('JsBridge: native bridge is undefined.')
-                return
-            }
-            if (window.nativeBridge.response == undefined) {
-                console.error('JsBridge: native bridge.response() is undefined.')
-                return
-            }
-            try {
-                window.nativeBridge.response(code, info, JSON.stringify(data), callbackId)
-            } catch (e) {
-                console.error(`JsBridge: ${type} response to native error.`, e)
-            }
+            let response = new Response(code, info, JSON.stringify(data), callbackId)
+            let json = JSON.stringify(response)
+            this.postMessage(json)
         }
         const callback = (result: string) => {
             callNative(0, 'OK', result)

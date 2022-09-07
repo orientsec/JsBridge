@@ -24,7 +24,7 @@ class MainActivity : Activity(), View.OnClickListener {
         webView = findViewById(R.id.webView)
         val settings = webView.settings
         settings.javaScriptEnabled = true
-        val button = findViewById<Button>(R.id.button)
+        val button = findViewById<Button>(R.id.btnMsg)
         button.setOnClickListener(this)
         webView.loadUrl("http:///192.168.106.129:8080")
         webView.registerHandler("hello") { data, callback ->
@@ -44,7 +44,7 @@ class MainActivity : Activity(), View.OnClickListener {
     }
 
     override fun onClick(v: View) {
-        if (R.id.button == v.id) {
+        if (R.id.btnMsg == v.id) {
             webView.callHandler(
                 "hello",
                 "hello \\ from \\Java \\kotlin",
@@ -65,7 +65,6 @@ class MainActivity : Activity(), View.OnClickListener {
                         ).show()
 
                     }
-
                 })
         }
     }

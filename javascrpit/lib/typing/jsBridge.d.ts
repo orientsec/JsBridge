@@ -11,17 +11,17 @@ export interface HandlerCallback {
      */
     onError(code: number, info: string): void;
 }
-export interface Bridge {
-    request(type: string, data: string, callbackId: string): void;
-    response(code: number, info: string, data: string, callbackId: string): void;
+export interface BridgeChannel {
+    onMessage(data: string): void;
 }
 declare global {
     interface Window {
         jsBridge: JsBridge;
-        nativeBridge: Bridge;
+        bridgeChannel: BridgeChannel;
+        bridgePort: MessagePort;
     }
 }
-export declare class JsBridge implements Bridge {
+export declare class JsBridge {
     static getInstance(): JsBridge;
     private constructor();
     private receiveMessageQueue?;
@@ -29,12 +29,15 @@ export declare class JsBridge implements Bridge {
     private readonly responseCallbacks;
     private uniqueId;
     private defaultHandler;
+    private postMessage;
     init(handler: MessageHandler): void;
     registerHandler(type: string, handler: MessageHandler): void;
-    callHandler(type: string, data: string, handlerCallback?: HandlerCallback): void;
-    response(code: number, info: string, data: string, callbackId: string): void;
+    callHandler(name: string, data: string, handlerCallback?: HandlerCallback): void;
     private handleNativeMessage;
-    request(type: string, data: string, callbackId: string): void;
+    onMessage(data: string): void;
+    private validateParams;
+    private onRequest;
+    private onResponse;
     private emptyCallback;
     private nativeCallback;
 }

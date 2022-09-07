@@ -21,7 +21,6 @@ class BridgeWebView : WebView, JsBridge {
 
     init {
         super.setWebViewClient(bridgeWebViewClient)
-        addJavascriptInterface(jsBridge, "nativeBridge")
         if (debug) {
             setWebContentsDebuggingEnabled(true)
         }
@@ -56,7 +55,6 @@ class BridgeWebView : WebView, JsBridge {
      * 这里只是加载lib包中assets中的 index.min.js。
      */
     internal fun loadJs() {
-        jsBridge.onLoadStart()
         val mill = measureTimeMillis {
             try {
                 val js = context.assets.open("jsbridge/index.min.js")
@@ -76,6 +74,5 @@ class BridgeWebView : WebView, JsBridge {
 
         }
         BridgeLogger.info("load js bridge script in:$mill ms")
-        jsBridge.onLoadFinished()
     }
 }

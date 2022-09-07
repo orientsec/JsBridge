@@ -3,13 +3,15 @@ import * as ReactDOM from 'react-dom'
 import type { JsBridge } from 'js-bridge'
 // eslint-disable-next-line import/extensions
 import('./compat')
+// eslint-disable-next-line import/extensions
+import('./message')
 
 console.log(`user-agent: ${navigator.userAgent}`)
 var isAndroid = navigator.userAgent.indexOf('Android') > -1
 if (!isAndroid) {
-    import('js-bridge')
     // eslint-disable-next-line import/extensions
     import('./native')
+    import('js-bridge')
 }
 
 const initBridge = (jsBridge: JsBridge) => {
