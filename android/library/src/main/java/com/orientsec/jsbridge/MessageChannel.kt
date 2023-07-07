@@ -10,6 +10,7 @@ import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.WebMessageCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONObject
 
 interface MessageChannel {
 
@@ -100,8 +101,7 @@ class SafeMessageChannel(webView: WebView) : MessageChannel,
     }
 }
 
-internal const val JS_MESSAGE_FROM_NATIVE =
-    "javascript:jsBridge.onMessage('%s');"
+internal const val JS_MESSAGE_FROM_NATIVE = "javascript:jsBridge.onMessage('%s');"
 
 class UnsafeMessageChannel(private val webView: WebView) : MessageChannel,
     Loggable by BridgeLogger {
@@ -120,7 +120,9 @@ class UnsafeMessageChannel(private val webView: WebView) : MessageChannel,
     override fun postMessage(message: String) {
         val messageList = messageList
         if (messageList == null) {
-            val script = String.format(JS_MESSAGE_FROM_NATIVE, message.replace("\\", "\\\\"))
+            //escape special characters for json string
+            val formattedMessage = JSONObject.quote(message)
+            val script = String.format(JS_MESSAGE_FROM_NATIVE, formattedMessage)
             runOnUiThread {
                 info("callJs->$script")
                 webView.evaluateJavascript(script, null)

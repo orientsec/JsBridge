@@ -1,7 +1,6 @@
 package com.orientsec.jsbridge
 
 import android.os.SystemClock
-import androidx.annotation.MainThread
 import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 import java.lang.IllegalArgumentException
@@ -10,14 +9,14 @@ import java.util.concurrent.atomic.AtomicLong
 
 internal class JsBridgeDelegate(webView: BridgeWebView) : JsBridge, MessageListener,
     Loggable by BridgeLogger {
-    private val channel: MessageChannel =
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+    private val channel: MessageChannel
+
+    init {
+        channel = if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             SafeMessageChannel(webView)
         } else {
             UnsafeMessageChannel(webView)
         }
-
-    init {
         channel.addMessageListener(this)
     }
 
@@ -44,7 +43,6 @@ internal class JsBridgeDelegate(webView: BridgeWebView) : JsBridge, MessageListe
      * @param handlerName handlerName
      * @param handler     BridgeHandler
      */
-    @MainThread
     override fun registerHandler(handlerName: String, handler: BridgeHandler) {
         // 添加至 Map<String, BridgeHandler>
         mMessageHandlers[handlerName] = handler
@@ -57,7 +55,6 @@ internal class JsBridgeDelegate(webView: BridgeWebView) : JsBridge, MessageListe
      *
      * @param handlers handlerName
      */
-    @MainThread
     override fun registerHandler(handlers: Map<String, BridgeHandler>) {
         mMessageHandlers.putAll(handlers)
     }
@@ -68,7 +65,6 @@ internal class JsBridgeDelegate(webView: BridgeWebView) : JsBridge, MessageListe
      *
      * @param handlerName
      */
-    @MainThread
     override fun unregisterHandler(handlerName: String) {
         mMessageHandlers.remove(handlerName)
     }
@@ -81,7 +77,6 @@ internal class JsBridgeDelegate(webView: BridgeWebView) : JsBridge, MessageListe
      * @param data             Request data.
      * @param responseCallback BridgeCallback.
      */
-    @MainThread
     override fun callHandler(
         handlerName: String,
         data: String,
