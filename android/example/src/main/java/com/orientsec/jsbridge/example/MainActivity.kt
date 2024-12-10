@@ -8,6 +8,7 @@ import android.view.View
 import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.Toast
 import com.orientsec.jsbridge.*
@@ -20,7 +21,7 @@ class MainActivity : Activity(), View.OnClickListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         WebView.setWebContentsDebuggingEnabled(true)
-        debug = true
+        JsBridge.debug = true
         webView = findViewById(R.id.webView)
         val settings = webView.settings
         settings.javaScriptEnabled = true
@@ -29,7 +30,13 @@ class MainActivity : Activity(), View.OnClickListener {
         webView.loadUrl("http:///192.168.106.129:8080")
         webView.registerHandler("hello") { data, callback ->
             Log.i("MainActivity", "handler = hello, data from web = $data")
-            callback.onResult("Hello! Welcome to visit native!")
+            callback.onSuccess("Hello! Welcome to visit native!")
+        }
+        webView.webViewClient = object :WebViewClient(){
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                webView.loadJsBridgeScript()
+            }
         }
         webView.webChromeClient = object : WebChromeClient() {
             override fun onJsAlert(
@@ -49,7 +56,7 @@ class MainActivity : Activity(), View.OnClickListener {
                 "hello",
                 "hello \\ from \\Java \\kotlin",
                 object : BridgeCallback {
-                    override fun onResult(data: String) {
+                    override fun onSuccess(data: String) {
                         Toast.makeText(
                             this@MainActivity,
                             "Response from js: $data",

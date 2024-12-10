@@ -1,36 +1,38 @@
 package com.orientsec.jsbridge
 
 /**
- * 原生指令handler。
+ * Native handler.
  */
 fun interface BridgeHandler {
     /**
-     * 处理js请求。
-     * @param data 请求数据。
-     * @param callback 请求回调函数。
+     * Handle js request.
+     * @param data request data.
+     * @param callback response callback.
      */
     fun handle(data: String, callback: BridgeCallback)
 }
 
+/**
+ * Defines a callback interface for handling the results of bridge operations.
+ * This interface includes two methods for handling success and error callbacks.
+ */
 interface BridgeCallback {
     /**
-     * 成功回调。
+     * Success callback method.
+     * This method is called when the bridge operation is successful,
+     * and it returns the success data.
+     *
+     * @param data The success data, containing relevant information after the operation succeeds.
      */
-    fun onResult(data: String)
+    fun onSuccess(data: String)
 
     /**
-     * 失败回调。
+     * Error callback method.
+     * This method is called when the bridge operation fails, and it returns the error code
+     * and error information.
+     *
+     * @param code The error code, indicating the type or reason for the failure.
+     * @param info The error information, providing a more detailed description of the failure.
      */
     fun onError(code: Int, info: String)
-}
-
-//空回调函数。当js请求的回调id为null时，不需要回调js。
-object EmptyBridgeCallback : BridgeCallback {
-    override fun onResult(data: String) {
-        BridgeLogger.info("None js callback, onResult:$data")
-    }
-
-    override fun onError(code: Int, info: String) {
-        BridgeLogger.info("None js callback, onError:[$code, $info]")
-    }
 }

@@ -2,14 +2,13 @@ package com.orientsec.jsbridge
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.View
 import android.webkit.WebView
-import android.webkit.WebViewClient
-import kotlin.system.measureTimeMillis
 
 
-class BridgeWebView : WebView, JsBridge {
-    private val jsBridge: JsBridgeDelegate = JsBridgeDelegate(this)
-    private val bridgeWebViewClient: BridgeWebViewClient = BridgeWebViewClient()
+class BridgeWebView : WebView, IBridgeWebView {
+    override val view: View = this
+    override val jsBridge: JsBridge = install()
 
     constructor(context: Context) : super(context.fixedContext())
     constructor(context: Context, attrs: AttributeSet?) : super(context.fixedContext(), attrs)
@@ -20,59 +19,36 @@ class BridgeWebView : WebView, JsBridge {
     )
 
     init {
-        super.setWebViewClient(bridgeWebViewClient)
-        if (debug) {
+        if (JsBridge.debug) {
             setWebContentsDebuggingEnabled(true)
         }
     }
 
-    override fun setWebViewClient(webViewClient: WebViewClient) {
-        bridgeWebViewClient.webViewClient = webViewClient
-    }
-
-    override fun registerHandler(handlerName: String, handler: BridgeHandler) {
-        jsBridge.registerHandler(handlerName, handler)
-    }
-
-    override fun registerHandler(handlers: Map<String, BridgeHandler>) {
-        jsBridge.registerHandler(handlers)
-    }
-
-    override fun unregisterHandler(handlerName: String) {
-        jsBridge.unregisterHandler(handlerName)
-    }
-
-    override fun callHandler(
-        handlerName: String,
-        data: String,
-        responseCallback: BridgeCallback?
-    ) {
-        jsBridge.callHandler(handlerName, data, responseCallback)
-    }
-
-
-    /**
-     * 这里只是加载lib包中assets中的 index.min.js。
-     */
-    internal fun loadJs() {
-        val mill = measureTimeMillis {
-            try {
-                val js = context.assets.open("jsbridge/index.min.js")
-                    .bufferedReader()
-                    .use {
-                        val sb = StringBuilder()
-                        do {
-                            val line = it.readLine()
-                            sb.append(line)
-                        } while (line != null)
-                        sb.toString()
-                    }
-                loadUrl("javascript:$js")
-            } catch (e: Exception) {
-                BridgeLogger.error("Js bridge script load failed.", e)
-            }
-
+    override fun loadUrl(url: String) {
+        super.loadUrl(url)
+        if (url.startsWith("http") || url.startsWith("file")) {
+            resetRequestQueue()
         }
-        BridgeLogger.info("load js bridge script in:$mill ms")
+    }
+
+    override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
+        super.loadUrl(url, additionalHttpHeaders)
+        resetRequestQueue()
+    }
+
+    override fun reload() {
+        super.reload()
+        resetRequestQueue()
+    }
+
+    override fun onStart() {
+    }
+
+    override fun onFinish() {
+    }
+
+    override fun destroy() {
+        super.destroy()
+        (this as IBridgeWebView).destroy()
     }
 }

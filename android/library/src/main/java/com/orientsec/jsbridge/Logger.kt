@@ -22,32 +22,32 @@ class Logger(private val tag: String) : Loggable {
     }
 
     override fun debug(message: String) {
-        if (debug) {
+        if (JsBridge.debug) {
             Log.d(tag, message.fillUp())
         }
     }
 
     override fun info(message: String) {
-        if (debug) {
+        if (JsBridge.debug) {
             Log.i(tag, message.fillUp())
         }
     }
 
     override fun warn(message: String) {
-        if (debug) {
+        if (JsBridge.debug) {
             Log.w(tag, message.fillUp())
         }
     }
 
 
     override fun error(message: String) {
-        if (debug) {
+        if (JsBridge.debug) {
             Log.e(tag, message.fillUp())
         }
     }
 
     override fun error(message: String, throwable: Throwable) {
-        if (debug) {
+        if (JsBridge.debug) {
             Log.e(tag, message.fillUp(), throwable)
         }
     }

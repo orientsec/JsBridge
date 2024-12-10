@@ -5,10 +5,10 @@ interface JsBridge {
      * Register handler, so that javascript can call it.
      * 注册处理程序,以便javascript调用。
      *
-     * @param handlerName HandlerName.
-     * @param handler     BridgeHandler.
+     * @param name HandlerName.
+     * @param handler BridgeHandler.
      */
-    fun registerHandler(handlerName: String, handler: BridgeHandler)
+    fun registerHandler(name: String, handler: BridgeHandler)
 
     /**
      * Register handler,so that javascript can call it.
@@ -21,18 +21,20 @@ interface JsBridge {
     /**
      * Unregister handler.
      *
-     * @param handlerName HandlerName.
+     * @param name HandlerName.
      */
-    fun unregisterHandler(handlerName: String)
+    fun unregisterHandler(name: String)
 
     /**
-     * 调用Js handler。
+     * Call Javascript handler。
      *
-     * @param handlerName      HandlerName.
+     * @param name      HandlerName.
      * @param data             Request data.
      * @param responseCallback BridgeCallback.
      */
-    fun callHandler(handlerName: String, data: String, responseCallback: BridgeCallback? = null)
-}
+    fun callHandler(name: String, data: String, responseCallback: BridgeCallback? = null)
 
-var debug: Boolean = false
+    companion object {
+        var debug: Boolean = false
+    }
+}

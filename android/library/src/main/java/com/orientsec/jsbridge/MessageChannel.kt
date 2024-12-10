@@ -12,30 +12,72 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 
+/**
+ * Interface MessageChannel defines the behavior and management mechanisms for message passing
+ * between Native and JavaScript.
+ */
 interface MessageChannel {
+    /**
+     * Called when the channel becomes active.
+     * This can be used to perform initialization or preparation operations to ensure the
+     * channel is ready for use.
+     */
+    fun active()
 
+    /**
+     * Sends a message through the channel.
+     *
+     * @param message The content of the message to be sent.
+     */
     fun postMessage(message: String)
 
+    /**
+     * Adds a message listener to handle received messages.
+     *
+     * @param messageListener The instance of the message listener to be added.
+     */
     fun addMessageListener(messageListener: MessageListener)
 
+    /**
+     * Removes a message listener from the channel.
+     *
+     * @param messageListener The instance of the message listener to be removed.
+     */
     fun removeMessageListener(messageListener: MessageListener)
 }
 
+/**
+ * Functional interface MessageListener is used to listen and handle message events.
+ * It defines a single abstract method onMessage, which is called when a new message arrives.
+ * The primary purpose is to set up listeners where message events need to be handled
+ * asynchronously.
+ */
 fun interface MessageListener {
+    /**
+     * Called when a new message arrives. This method is responsible for handling the incoming
+     * message string.
+     *
+     * @param message The content of the message, a string containing the received message.
+     */
     fun onMessage(message: String)
 }
 
-class SafeMessageChannel(webView: WebView) : MessageChannel,
+/**
+ * Class WebkitMessageChannel implements the MessageChannel interface.
+ * It receives messages through WebViewCompat.WebMessageListener and sends messages through
+ * JavaScriptReplyProxy.
+ * With the support of the androidx.webkit component, it ensures safer interaction with WebView.
+ *
+ * @param webView The WebView instance used for communication, through which messages can be sent
+ * and received.
+ */
+class WebkitMessageChannel(private val webView: WebView) : MessageChannel,
     WebViewCompat.WebMessageListener, Loggable by BridgeLogger {
+
     private var javaScriptReplyProxy: JavaScriptReplyProxy? = null
     private val listeners: MutableSet<MessageListener> = mutableSetOf()
 
-    /**
-     * Cached native request before page loaded.
-     */
-    private val messageList = mutableListOf<String>()
-
-    init {
+    override fun active() {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(
                 webView,
@@ -44,7 +86,7 @@ class SafeMessageChannel(webView: WebView) : MessageChannel,
                 this
             )
         } else {
-            error("Not support WEB_MESSAGE_LISTENER.")
+            error("Not supported: WEB_MESSAGE_LISTENER.")
         }
     }
 
@@ -52,23 +94,13 @@ class SafeMessageChannel(webView: WebView) : MessageChannel,
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             val replyProxy = javaScriptReplyProxy
             if (replyProxy == null) {
-                messageList.add(message)
+                error("PostMessage should be called after the channel receives an initialized " +
+                        "message from JavaScript.")
             } else {
                 replyProxy.postMessage(message)
             }
         } else {
-            error("Not support WEB_MESSAGE_LISTENER.")
-        }
-    }
-
-    private fun postMessageOnInit(replyProxy: JavaScriptReplyProxy) {
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
-            messageList.forEach {
-                replyProxy.postMessage(it)
-            }
-            messageList.clear()
-        } else {
-            error("Not support WEB_MESSAGE_LISTENER.")
+            error("Not supported: WEB_MESSAGE_LISTENER.")
         }
     }
 
@@ -91,61 +123,46 @@ class SafeMessageChannel(webView: WebView) : MessageChannel,
         javaScriptReplyProxy = replyProxy
         val data = message.data
         if (data.isNullOrEmpty()) {
-            warn("receive empty message from h5.")
-            return
-        } else if (data.startsWith("JsBridge-Channel-Init")) {
-            postMessageOnInit(replyProxy)
+            warn("Received empty message from JavaScript.")
         } else {
             listeners.forEach { it.onMessage(data) }
         }
     }
 }
 
-internal const val JS_MESSAGE_FROM_NATIVE = "javascript:jsBridge.onMessage('%s');"
-
-class UnsafeMessageChannel(private val webView: WebView) : MessageChannel,
+/**
+ * Class StandardMessageChannel implements the MessageChannel interface to support message passing
+ * between Native and JavaScript.
+ *
+ * @param webView An instance of [IBridgeWebView], used as a bridge for message passing.
+ */
+class StandardMessageChannel(private val webView: IBridgeWebView) : MessageChannel,
     Loggable by BridgeLogger {
-    private val mainHandler = Handler(Looper.getMainLooper())
+
+    companion object {
+        private const val JS_MESSAGE_FROM_NATIVE = "javascript:jsBridge.onMessage('%s');"
+        private val mainHandler = Handler(Looper.getMainLooper())
+    }
+
     private val listeners: MutableSet<MessageListener> = mutableSetOf()
 
-    /**
-     * Cached native request before page loaded.
-     */
-    private var messageList: MutableList<String>? = mutableListOf()
-
-    init {
+    override fun active() {
         webView.addJavascriptInterface(this, "bridgeChannel")
     }
 
     override fun postMessage(message: String) {
-        val messageList = messageList
-        if (messageList == null) {
-            //escape special characters for json string
-            val formattedMessage = JSONObject.quote(message)
-            val script = String.format(JS_MESSAGE_FROM_NATIVE, formattedMessage)
-            runOnUiThread {
-                info("callJs->$script")
-                webView.evaluateJavascript(script, null)
-            }
-        } else {
-            messageList.add(message)
-        }
-    }
-
-    private fun postMessageOnInit() {
-        val messageList = messageList ?: return
+        // Escape special characters for JSON string
+        val formattedMessage = JSONObject.quote(message)
+        val script = String.format(JS_MESSAGE_FROM_NATIVE, formattedMessage)
         runOnUiThread {
-            messageList.forEach {
-                val script = String.format(JS_MESSAGE_FROM_NATIVE, it)
-                info("callJs->$script")
-                webView.evaluateJavascript(script, null)
-            }
+            info("callJs->$script")
+            webView.evaluateJavascript(script, null)
         }
-        this.messageList = null
     }
 
     private fun runOnUiThread(runnable: () -> Unit) {
-        // 必须要找主线程才会将数据传递出去 --- 划重点
+        val mainHandler = webView.view.handler ?: mainHandler
+        // Must find the main thread to pass data out --- Important point
         if (Thread.currentThread() === Looper.getMainLooper().thread) {
             runnable()
         } else {
@@ -154,7 +171,6 @@ class UnsafeMessageChannel(private val webView: WebView) : MessageChannel,
             }
         }
     }
-
 
     override fun addMessageListener(messageListener: MessageListener) {
         listeners.add(messageListener)
@@ -166,8 +182,8 @@ class UnsafeMessageChannel(private val webView: WebView) : MessageChannel,
 
     @JavascriptInterface
     fun onMessage(message: String) {
-        if (message.startsWith("JsBridge-Channel-Init")) {
-            postMessageOnInit()
+        if (message.isEmpty()) {
+            warn("Received empty message from JavaScript.")
         } else {
             listeners.forEach { it.onMessage(message) }
         }
