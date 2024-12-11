@@ -18,7 +18,7 @@
     var uniqueId = 1;
 
     var state = window.location.host.length > 0 ? "ok" : "error";
-    prompt(CUSTOM_PROTOCOL_SCHEME + 'pageLoaded/' + state);
+    jsBridge.onMessage(CUSTOM_PROTOCOL_SCHEME + 'pageLoaded/' + state);
 
     //set default requestHandler
     function init(requestHandler) {
@@ -57,7 +57,7 @@
             responseCallbacks[callbackId] = responseCallback;
             request.id = callbackId;
         }
-        prompt(GL_REQUEST + JSON.stringify(request));
+        jsBridge.onMessage(GL_REQUEST + JSON.stringify(request));
     }
 
     function _handleResponseFromNative(responseJson) {
@@ -83,7 +83,7 @@
                         id: request.id,
                         data: responseData
                     };
-                    prompt(GL_RESPONSE + JSON.stringify(response));
+                    jsBridge.onMessage(GL_RESPONSE + JSON.stringify(response));
                 }
             } else {
                 responseCallback = function (responseData) {

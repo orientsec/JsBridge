@@ -70,7 +70,6 @@ class BridgeWebViewClient extends WebViewClient {
         return webViewClient.shouldInterceptRequest(view, url);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
         return webViewClient.shouldInterceptRequest(view, request);
@@ -113,7 +112,6 @@ class BridgeWebViewClient extends WebViewClient {
         webViewClient.onReceivedSslError(view, handler, error);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     public void onReceivedClientCertRequest(WebView view, ClientCertRequest request) {
         webViewClient.onReceivedClientCertRequest(view, request);

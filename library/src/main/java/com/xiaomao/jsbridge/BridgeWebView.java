@@ -2,16 +2,15 @@ package com.xiaomao.jsbridge;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.os.Build;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.webkit.WebChromeClient;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import androidx.annotation.RequiresApi;
+import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,14 +20,13 @@ import java.util.Map;
 @SuppressLint("SetJavaScriptEnabled")
 public class BridgeWebView extends WebView implements WebViewJavascriptBridge, OnPageLoadListener {
     private OnPageLoadListener onPageLoadListener;
-    private Map<String, CallBackFunction> responseCallbacks = new HashMap<String, CallBackFunction>();
-    private Map<String, BridgeHandler> messageHandlers = new HashMap<>();
+    private final Map<String, CallBackFunction> responseCallbacks = new HashMap<>();
+    private final Map<String, BridgeHandler> messageHandlers = new HashMap<>();
     private BridgeHandler defaultHandler = new DefaultHandler();
 
     private List<Request> startupRequests = new ArrayList<>();
 
     private BridgeWebViewClient bridgeWebViewClient;
-    private BridgeWebChromeClient bridgeWebChromeClient;
 
     private long uniqueId = 0;
 
@@ -46,15 +44,8 @@ public class BridgeWebView extends WebView implements WebViewJavascriptBridge, O
         init();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     public BridgeWebView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
-        init();
-    }
-
-    @Deprecated
-    public BridgeWebView(Context context, AttributeSet attrs, int defStyleAttr, boolean privateBrowsing) {
-        super(context, attrs, defStyleAttr, privateBrowsing);
         init();
     }
 
@@ -75,13 +66,10 @@ public class BridgeWebView extends WebView implements WebViewJavascriptBridge, O
         this.setVerticalScrollBarEnabled(false);
         this.setHorizontalScrollBarEnabled(false);
         this.getSettings().setJavaScriptEnabled(true);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            WebView.setWebContentsDebuggingEnabled(true);
-        }
+        WebView.setWebContentsDebuggingEnabled(true);
         bridgeWebViewClient = new BridgeWebViewClient();
-        bridgeWebChromeClient = new BridgeWebChromeClient();
         super.setWebViewClient(bridgeWebViewClient);
-        super.setWebChromeClient(bridgeWebChromeClient);
+        addJavascriptInterface(this, "jsBridge");
     }
 
     public void onPageLoaded(boolean isLoaded) {
@@ -91,15 +79,9 @@ public class BridgeWebView extends WebView implements WebViewJavascriptBridge, O
     }
 
     @Override
-    public void setWebViewClient(WebViewClient client) {
+    public void setWebViewClient(@NonNull WebViewClient client) {
         bridgeWebViewClient.setWebViewClient(client);
     }
-
-    @Override
-    public void setWebChromeClient(WebChromeClient client) {
-        bridgeWebChromeClient.setWebChromeClient(client);
-    }
-
 
     void sendStartupRequests() {
         if (startupRequests != null) {
@@ -174,21 +156,15 @@ public class BridgeWebView extends WebView implements WebViewJavascriptBridge, O
         CallBackFunction responseFunction;
         // if had callbackId
         if (!TextUtils.isEmpty(request.getId())) {
-            responseFunction = new CallBackFunction() {
-                @Override
-                public void onCallBack(String data) {
-                    Response response = new Response();
-                    response.setId(request.getId());
-                    response.setData(data);
-                    dispatchResponse(response);
-                }
+            responseFunction = data -> {
+                Response response = new Response();
+                response.setId(request.getId());
+                response.setData(data);
+                dispatchResponse(response);
             };
         } else {
-            responseFunction = new CallBackFunction() {
-                @Override
-                public void onCallBack(String data) {
-                    // do nothing
-                }
+            responseFunction = data -> {
+                // do nothing
             };
         }
         BridgeHandler handler;
@@ -205,8 +181,8 @@ public class BridgeWebView extends WebView implements WebViewJavascriptBridge, O
     /**
      * register handler,so that javascript can call it
      *
-     * @param handlerName
-     * @param handler
+     * @param handlerName handler name
+     * @param handler js handler
      */
     public void registerHandler(String handlerName, BridgeHandler handler) {
         if (handler != null) {
@@ -217,13 +193,30 @@ public class BridgeWebView extends WebView implements WebViewJavascriptBridge, O
     /**
      * call javascript registered handler
      *
-     * @param handlerName
-     * @param data
-     * @param callBack
+     * @param handlerName handler name
+     * @param data data
+     * @param callBack callback
      */
     public void callHandler(String handlerName, String data, CallBackFunction callBack) {
         doSend(handlerName, data, callBack);
     }
 
 
+    @JavascriptInterface
+    public void onMessage(String message) {
+        if (message.startsWith(BridgeUtil.GL_REQUEST)) {
+            final Request request = Request.toObject(message.replace(BridgeUtil.GL_REQUEST, ""));
+            if (request != null) {
+                post(() -> handleRequest(request));
+            }
+        } else if (message.startsWith(BridgeUtil.GL_RESPONSE)) {
+            final Response response = Response.toObject(message.replace(BridgeUtil.GL_RESPONSE, ""));
+            if (response != null) {
+                post(() -> handleResponse(response));
+            }
+        } else if (message.startsWith(BridgeUtil.GL_PAGE_LOADED)) {
+            String result = message.replace(BridgeUtil.GL_PAGE_LOADED, "");
+            post(() -> onPageLoaded("ok".equals(result)));
+        }
+    }
 }
