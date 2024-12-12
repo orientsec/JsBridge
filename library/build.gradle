@@ -1,16 +1,12 @@
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
-version = "1.0-beta3"
-
 android {
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         minSdkVersion 21
-        targetSdkVersion 34
-        versionCode 1
-        versionName version
+        targetSdkVersion 35
     }
     sourceSets.main.java.exclude 'com/xiaomao/jsbridge/WebViewJavascriptBridge.js'
     buildTypes {
@@ -24,6 +20,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+        }
+    }
 }
 
 dependencies {
@@ -33,13 +34,11 @@ dependencies {
 afterEvaluate {
     publishing {
         publications {
-            println("Components: " + components*.name)
             release(MavenPublication) {
                 groupId = 'com.github.orientsec'
                 artifactId = 'jsbridge'
-                version = version
-//                from components.release
-                from components.findByName('release')
+                version = '1.0-beta3'
+                from components.release
             }
         }
     }
