@@ -3,8 +3,7 @@ package com.orientsec.jsbridge
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
-import android.webkit.WebView
-import kotlin.system.measureTimeMillis
+import org.json.JSONObject
 
 /**
  * Returns a fixed context based on the SDK version.
@@ -21,4 +20,24 @@ internal fun Context.fixedContext(): Context {
         return createConfigurationContext(Configuration())
     }
     return this
+}
+
+/**
+ * Returns the value mapped by {@code key} if it exists, coercing it if
+ * necessary, or the null if no such mapping exists.
+ *
+ * The standard JSONObject.getString(key) method will throw a JSONException if the key is not
+ * present or if the value associated with the key is not a string. Additionally, if the JSON value
+ * is explicitly null, getString may also throw an exception or return the string literal "null".
+ *
+ * This is not a perfect workaround, but maybe the best approach to get a nullable string from
+ * JSONObject.
+ *
+ */
+fun JSONObject.getNullableString(key: String): String? {
+    return if (isNull(key)) {
+        null
+    } else {
+        getString(key)
+    }
 }

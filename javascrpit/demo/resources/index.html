@@ -2,14 +2,82 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>jsdemo</title>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type">
+    <title>
+        JDBridge Demo
+    </title>
+    <style rel="stylesheet">
+        body {
+            /*background-color: green;*/
+            font-family: "幼圆", "微软雅黑", "黑体", serif;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .container {
+            position: relative;
+            top: 80px;
+        }
+
+        .myText {
+            border-radius: 2px;
+            width: 95%;
+            display: block;
+            margin: 5px auto auto auto;
+        }
+
+        .button {
+            background-color: rgba(18, 184, 139, 0.78);
+            width: 90%;
+            /* height: 32px; */
+            /*margin-top: 10px;*/
+            line-height: 15px;
+            text-align: center;
+            color: #fff;
+            border-radius: 2px;
+            margin: 3px auto auto auto;
+        }
+
+        .section {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .button {
+            margin: 5px;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 
 <body>
-    <div id="jsContainer"></div>
-    <div id="jsCompatContainer"></div>
-    <div id="nativeContainer"></div>
+    <div class="section">
+        <div class="section-title">JsBridge Standard Version</div>
+        <p>
+            <input type="button" class="button" id="jsbridge-add" value="Add Handler"/>
+            <input type="button" class="button" id="jsbridge-remove" value="Remove Handler"/>
+            <input type="button" class="button" id="jsbridge-call" value="Call Native Handler"/>
+        </p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">JsBridge Compat Version</div>
+        <p>
+            <input type="button" class="button" id="jsbridgecompat-add" value="Add Handler"/>
+            <input type="button" class="button" id="jsbridgecompat-remove" value="Remove Handler"/>
+            <input type="button" class="button" id="jsbridgecompat-call" value="Call Native Handler"/>
+        </p>
+    </div>
 </body>
 
 </html>

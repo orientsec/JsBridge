@@ -9,7 +9,7 @@ fun interface BridgeHandler {
      * @param data request data.
      * @param callback response callback.
      */
-    fun handle(data: String, callback: BridgeCallback)
+    fun handle(data: String?, callback: BridgeCallback)
 }
 
 /**
@@ -24,7 +24,7 @@ interface BridgeCallback {
      *
      * @param data The success data, containing relevant information after the operation succeeds.
      */
-    fun onSuccess(data: String)
+    fun onSuccess(data: String?)
 
     /**
      * Error callback method.

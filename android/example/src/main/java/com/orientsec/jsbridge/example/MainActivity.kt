@@ -5,8 +5,6 @@ import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.webkit.JsResult
-import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -25,54 +23,43 @@ class MainActivity : Activity(), View.OnClickListener {
         webView = findViewById(R.id.webView)
         val settings = webView.settings
         settings.javaScriptEnabled = true
-        val button = findViewById<Button>(R.id.btnMsg)
+        val button = findViewById<Button>(R.id.btn_call_js)
         button.setOnClickListener(this)
-        webView.loadUrl("http:///192.168.106.129:8080")
+        webView.loadUrl("file:///android_asset/index.html")
+
         webView.registerHandler("hello") { data, callback ->
-            Log.i("MainActivity", "handler = hello, data from web = $data")
+            Log.i("MainActivity", "handler = hello, data = $data")
             callback.onSuccess("Hello! Welcome to visit native!")
         }
-        webView.webViewClient = object :WebViewClient(){
+        webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 webView.loadJsBridgeScript()
             }
         }
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onJsAlert(
-                view: WebView?,
-                url: String?,
-                message: String?,
-                result: JsResult?
-            ): Boolean {
-                return super.onJsAlert(view, url, message, result)
-            }
-        }
     }
 
     override fun onClick(v: View) {
-        if (R.id.btnMsg == v.id) {
-            webView.callHandler(
-                "hello",
-                "hello \\ from \\Java \\kotlin",
-                object : BridgeCallback {
-                    override fun onSuccess(data: String) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Response from js: $data",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
+        webView.callHandler(
+            "hello",
+            "hello \\ from \\Java \\kotlin",
+            object : BridgeCallback {
+                override fun onSuccess(data: String?) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Response from js: $data",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
 
-                    override fun onError(code: Int, info: String) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Error from js: $code, $info",
-                            Toast.LENGTH_LONG
-                        ).show()
+                override fun onError(code: Int, info: String) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Error from js: $code, $info",
+                        Toast.LENGTH_LONG
+                    ).show()
 
-                    }
-                })
-        }
+                }
+            })
     }
 }

@@ -24,12 +24,13 @@
  */
 package com.orientsec.jsbridge
 
+import android.os.Looper
 import android.view.View
 import android.webkit.ValueCallback
-import android.webkit.WebViewClient
-import kotlin.system.measureTimeMillis
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.webkit.WebViewFeature
+import kotlin.system.measureTimeMillis
 
 /**
  * Interface for a WebView that supports JavaScript bridging.
@@ -37,22 +38,14 @@ import androidx.webkit.WebViewFeature
  * This interface extends JsBridge and provides additional methods or properties
  * specific to a WebView that can communicate with JavaScript.
  */
-interface IBridgeWebView : JsBridge, PageOnLoadListener {
+interface IBridgeWebView : JsBridge {
     val view: View
 
     val jsBridge: JsBridge
 
-    fun getUrl(): String?
-
     fun addJavascriptInterface(obj: Any, interfaceName: String)
 
     fun evaluateJavascript(script: String, resultCallback: ValueCallback<String>? = null)
-
-    fun loadUrl(url: String)
-
-    fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>)
-
-    fun reload()
 
     override fun registerHandler(name: String, handler: BridgeHandler) {
         jsBridge.registerHandler(name, handler)
@@ -66,7 +59,7 @@ interface IBridgeWebView : JsBridge, PageOnLoadListener {
         jsBridge.unregisterHandler(name)
     }
 
-    override fun callHandler(name: String, data: String, responseCallback: BridgeCallback?) {
+    override fun callHandler(name: String, data: String?, responseCallback: BridgeCallback?) {
         jsBridge.callHandler(name, data, responseCallback)
     }
 
@@ -81,6 +74,8 @@ interface IBridgeWebView : JsBridge, PageOnLoadListener {
  *
  * installed.
  * @return A JsBridge instance for registering handlers to process JavaScript requests.
+ *
+ * Make sure of calling this method in UI thread.
  */
 fun IBridgeWebView.install(): JsBridge {
     val webView = view as? WebView
@@ -91,7 +86,7 @@ fun IBridgeWebView.install(): JsBridge {
     } else {
         StandardMessageChannel(this)
     }
-    return JsBridgeInternal(channel, this).apply { install() }
+    return JsBridgeInternal(this, channel).apply { install() }
 }
 
 /**
@@ -104,9 +99,11 @@ fun IBridgeWebView.install(): JsBridge {
  * @param channel The [MessageChannel] to be used for communication between JavaScript and
  * Native code.
  * @return A [JsBridge] instance for handling JavaScript requests.
+ *
+ * Make sure of calling this method in UI thread.
  */
 fun IBridgeWebView.install(channel: MessageChannel): JsBridge {
-    return JsBridgeInternal(channel, this).apply { install() }
+    return JsBridgeInternal(this, channel).apply { install() }
 }
 
 /**
@@ -118,9 +115,10 @@ fun IBridgeWebView.install(channel: MessageChannel): JsBridge {
  * It is recommended to call this method in [WebViewClient.onPageFinished] to ensure the script is
  * loaded after the page has finished loading. Calling it before the page is fully loaded will have
  * no effect.
+ *
  * For more details, refer to [WebView.evaluateJavascript].
  *
- * It will also trigger [PageOnLoadListener.onStart].
+ * Make sure of calling this method in UI thread.
  *
  * @see WebViewClient.onPageFinished
  * @see WebView.evaluateJavascript
@@ -140,11 +138,10 @@ fun IBridgeWebView.loadJsBridgeScript() {
                 }
             evaluateJavascript("javascript:$js")
         } catch (e: Exception) {
-            BridgeLogger.error("Js bridge script load failed.", e)
+            BridgeLogger.error("JsBridge script load failed", e)
         }
     }
-    BridgeLogger.info("Load js bridge script in: $mill ms")
-    onStart()
+    BridgeLogger.info("load js bridge script in: $mill ms")
 }
 
 /**
@@ -152,6 +149,8 @@ fun IBridgeWebView.loadJsBridgeScript() {
  *
  * This function aims to reset the request queue for JS interactions, ensuring it can be
  * cleared and restarted under specific conditions.
+ *
+ * Make sure of calling this method in UI thread.
  */
 internal fun IBridgeWebView.resetRequestQueue() {
     (jsBridge as? JsBridgeInternal)?.resetRequestQueue()
@@ -159,7 +158,30 @@ internal fun IBridgeWebView.resetRequestQueue() {
 
 /**
  * Destroys the current BridgeWebView instance and releases related resources.
+ *
+ * Make sure of calling this method in UI thread.
  */
 internal fun IBridgeWebView.destroy() {
     (jsBridge as? JsBridgeInternal)?.destroy()
+}
+
+/**
+ * Executes the given Runnable task on the main thread.
+ *
+ * This method is primarily used for updating UI elements or performing operations that must be
+ * executed on the main thread.
+ * It checks whether the current thread is the main thread and either executes the Runnable
+ * directly or posts it to the main thread's message queue.
+ *
+ * @param runnable The task to be executed on the main thread, passed as a lambda expression.
+ */
+internal fun IBridgeWebView.runOnUiThread(runnable: () -> Unit) {
+    // Check if the current thread is the main thread
+    if (Thread.currentThread() === Looper.getMainLooper().thread) {
+        // If it is the main thread, execute the Runnable directly
+        runnable()
+    } else {
+        // If not, post the Runnable to the main thread's message queue
+        view.post(runnable)
+    }
 }

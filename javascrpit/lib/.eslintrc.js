@@ -1,7 +1,7 @@
 module.exports = {
     'env': {
         'browser': true,
-        'es2021': true
+        'es2022': true
     },
     'extends': [
         'airbnb-typescript/base'
@@ -19,10 +19,10 @@ module.exports = {
         'import'
     ],
     'rules': {
-        '@typescript-eslint/indent': ['error', 4],
+        '@typescript-eslint/indent': ['error', 4, {"ignoreComments": true}],
         '@typescript-eslint/semi': ['error', 'never'],
         '@typescript-eslint/comma-dangle': 'off',
-        'linebreak-style': ['error', 'windows'],
+        'linebreak-style': ['error', 'unix'],
         'quotes': ['error', 'single'],
         'semi': ['error', 'never'],
         'max-classes-per-file': 'off',

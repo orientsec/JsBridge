@@ -41,12 +41,6 @@ class BridgeWebView : WebView, IBridgeWebView {
         resetRequestQueue()
     }
 
-    override fun onStart() {
-    }
-
-    override fun onFinish() {
-    }
-
     override fun destroy() {
         super.destroy()
         (this as IBridgeWebView).destroy()

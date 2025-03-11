@@ -6,7 +6,7 @@ const config = {
         hot: true
     },
     entry: {
-        index: './src/index.tsx'
+        index: './src/index.ts'
     },
     devtool: 'eval-source-map',
     module: {
@@ -23,7 +23,7 @@ const config = {
     },
     output: {
         path: path.resolve(__dirname, 'dist'),
-        filename: '[name].js'
+        filename: 'main.js'
     },
     plugins: [
         new HtmlWebpackPlugin({

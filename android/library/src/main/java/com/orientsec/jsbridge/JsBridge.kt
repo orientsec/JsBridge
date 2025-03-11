@@ -32,7 +32,7 @@ interface JsBridge {
      * @param data             Request data.
      * @param responseCallback BridgeCallback.
      */
-    fun callHandler(name: String, data: String, responseCallback: BridgeCallback? = null)
+    fun callHandler(name: String, data: String?, responseCallback: BridgeCallback? = null)
 
     companion object {
         var debug: Boolean = false

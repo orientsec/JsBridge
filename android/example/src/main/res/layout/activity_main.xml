@@ -5,17 +5,13 @@
     android:orientation="vertical">
 
     <Button
-        android:id="@+id/btnMsg"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
-
-    <Button
-        android:id="@+id/btnChannel"
+        android:id="@+id/btn_call_js"
+        android:text="@string/button_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 
     <com.orientsec.jsbridge.BridgeWebView
         android:id="@+id/webView"
-        android:layout_height="match_parent"
-        android:layout_width="match_parent" />
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
 </LinearLayout>
